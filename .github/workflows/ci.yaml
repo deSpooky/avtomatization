@@ -32,8 +32,7 @@ jobs:
 
     - name: tests
       run: |
-        pytest tests/test_utils.py
-
+        PYTHONPATH=. pytest tests/test_utils.py
 
     - name: Run script
       run: python main.py
