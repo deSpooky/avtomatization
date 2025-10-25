@@ -25,10 +25,10 @@ jobs:
         pip install -r requirements.txt
 
     - name: lint
-      run: flake8
+      run: flake8 .
 
     - name: format
-      run: black --check
+      run: black --check .
 
     - name: Run script
       run: python main.py
