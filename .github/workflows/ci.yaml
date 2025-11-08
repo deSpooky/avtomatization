@@ -57,7 +57,7 @@ jobs:
         name: test-report
         path: report.json
 
-    - name: send JSON report to Telegram
+    - name: send JSON report to telegram
       if: always()
       env:
         TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
