@@ -1,92 +1,67 @@
-name: Larionova
+name: Basic CI
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+on: [push, pull_request]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: checkout code
+    - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: set up Python
+    - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
+        python-version: "3.10"
 
-    - name: install dependencies
+    - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pytest-json-report black flake8
 
-    - name: lint
-      run: flake8 . || echo "lint failed"
+    - name: Lint with flake8
+      run: flake8 . || echo "Linting failed but continuing..."
       continue-on-error: true
 
-    - name: format
+    - name: Auto-format code with Black
       run: |
         black .
         git config --global user.name "github-actions"
         git config --global user.email "github-actions@github.com"
         git add .
-        git commit -m "format" || echo "no changes"
-        git push || echo "push failed"
+        git commit -m "Auto format code" || echo "No changes to commit"
+        git push || echo "Push failed, possibly no changes"
       continue-on-error: true
 
-    - name: tests
+    - name: Run tests and generate JSON report
       run: |
         export PYTHONPATH=.
-        pytest -v --json-report --json-report-file=report.json || echo "tests failed"
+        pytest -v --json-report --json-report-file=report.json || echo "Tests failed but report generated"
       continue-on-error: true
 
-    - name: ensure report exists
-      run: |
-        if [ ! -f report.json ]; then
-          echo '{"summary": {"total": 0, "passed": 0, "failed": 0, "error": "No tests run"}}' > report.json
-        fi
-
-    - name: JSON report
+    - name: Upload JSON report as artifact
       uses: actions/upload-artifact@v4
       with:
         name: test-report
         path: report.json
 
-    - name: send JSON report to telegram
+    - name: Send JSON report to Telegram
       if: always()
-      env:
-        TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
-        TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
       run: |
-        set -euo pipefail
-
-        if [ -z "${TG_BOT_TOKEN:-}" ] || [ -z "${TG_CHAT_ID:-}" ]; then
-          exit 1
+        if [ -f "report.json" ]; then
+          curl -F chat_id=${{ secrets.TG_CHAT_ID }} \
+               -F document=@./report.json \
+               -F caption=$'<b>Отчёт о тестах</b>\n\nРепозиторий: ${{ github.repository }}\nИнициатор: ${{ github.actor }}\nСтатус: ${{ job.status }}' \
+               -F parse_mode=HTML \
+               "https://api.telegram.org/bot${{ secrets.TG_TOKEN }}/sendDocument"
+        else
+          echo "report.json not found, creating minimal report..."
+          echo '{"summary": {"total": 0, "passed": 0, "failed": 0, "error": "No tests run"}}' > report.json
+          curl -F chat_id=${{ secrets.TG_CHAT_ID }} \
+               -F document=@./report.json \
+               -F caption=$'<b>Отчёт о тестах</b>\n\nОшибка: Тесты не были запущены\nРепозиторий: ${{ github.repository }}\nИнициатор: ${{ github.actor }}\nСтатус: failed' \
+               -F parse_mode=HTML \
+               "https://api.telegram.org/bot${{ secrets.TG_TOKEN }}/sendDocument"
         fi
-
-        REPORT_FILE="report.json"
-
-        if [ ! -s "${REPORT_FILE}" ]; then
-          echo '{"summary":{"total":0,"passed":0,"failed":0,"error":"No tests run"}}' > "${REPORT_FILE}"
-        fi
-
-        if [ ! -r "${REPORT_FILE}" ]; then
-          exit 1
-        fi
-
-        ABS_PATH="$(realpath "${REPORT_FILE}")"
-        JOB_STATUS="${{ job.status }}"
-        CAPTION="<b>Отчёт о тестах</b>\n\nРепозиторий: ${GITHUB_REPOSITORY}\nИнициатор: ${GITHUB_ACTOR}\nСтатус: ${JOB_STATUS}"
-
-        curl --fail --show-error \
-            --form chat_id="${TG_CHAT_ID}" \
-            --form "document=@${ABS_PATH};type=application/json;filename=report.json" \
-            --form "caption=${CAPTION}" \
-            --form parse_mode=HTML \
-            "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendDocument"
-      shell: bash
