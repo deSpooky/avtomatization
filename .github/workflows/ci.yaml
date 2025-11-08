@@ -51,8 +51,14 @@ jobs:
       if: always()
       run: |
         REPORT_FILE="report.json"
+
         if [ ! -s "$REPORT_FILE" ]; then
           echo '{"summary": {"total": 0, "passed": 0, "failed": 0, "error": "No tests run"}}' > "$REPORT_FILE"
+        fi
+
+        if [ ! -r "$REPORT_FILE" ]; then
+          echo "report.json не доступен для чтения"
+          exit 1
         fi
 
         ABS_PATH="$(realpath "$REPORT_FILE")"
