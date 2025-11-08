@@ -78,7 +78,6 @@ jobs:
         set -euo pipefail
 
         if [ -z "${TG_BOT_TOKEN:-}" ] || [ -z "${TG_CHAT_ID:-}" ]; then
-          echo "missing telegram secrets"
           exit 1
         fi
 
@@ -86,25 +85,15 @@ jobs:
           echo '{"summary": {"total": 0, "passed": 0, "failed": 0, "error": "No tests run"}}' > report.json
         fi
 
-        echo "=== report.json diagnostics ==="
-        ls -la report.json || true
-        file report.json || true
-        echo "----- start of report.json -----"
-        head -n 40 report.json || true
-        echo "----- end of report.json -----"
-
-        if [ ! -r report.json ]; then
-          echo "report.json is not readable"
-          exit 1
-        fi
-
+        ABS_PATH="$(realpath report.json)"
         JOB_STATUS="${{ job.status }}"
         CAPTION="<b>отчет о тестах</b>\n\nрепозиторий: ${GITHUB_REPOSITORY}\nинициатор: ${GITHUB_ACTOR}\nстатус: ${JOB_STATUS}"
 
         curl --fail --show-error \
             -F chat_id="${TG_CHAT_ID}" \
-            -F "document=@report.json;filename=report.json" \
+            -F "document=@${ABS_PATH};filename=report.json" \
             -F "caption=${CAPTION}" \
             -F parse_mode=HTML \
             "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendDocument"
       shell: bash
+
