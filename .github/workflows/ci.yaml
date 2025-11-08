@@ -63,7 +63,7 @@ jobs:
 
         ABS_PATH="$(realpath "$REPORT_FILE")"
         JOB_STATUS="${{ job.status }}"
-        CAPTION="<b>Отчёт о тестах</b>\n\nРепозиторий: ${{ github.repository }}\nИнициатор: ${{ github.actor }}\nСтатус: ${JOB_STATUS}"
+        CAPTION="<b>Отчёт о тестах</b>\n\nрепозиторий: ${{ github.repository }}\nИнициатор: ${{ github.actor }}\nСтатус: ${JOB_STATUS}"
 
         ls -la "$ABS_PATH"
         cat "$ABS_PATH"
