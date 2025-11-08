@@ -23,6 +23,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
+        pip install pytest-json-report black flake8
 
     - name: lint
       run: flake8 .
@@ -60,3 +61,4 @@ jobs:
                -F parse_mode=HTML \
                "https://api.telegram.org/bot${{ secrets.TG_BOT_TOKEN }}/sendDocument"
         fi
+
