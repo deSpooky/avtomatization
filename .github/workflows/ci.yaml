@@ -1,4 +1,4 @@
-name: Basic CI
+name: Larionova
 
 on: [push, pull_request]
 
@@ -50,18 +50,16 @@ jobs:
     - name: Send JSON report to Telegram
       if: always()
       run: |
-        if [ -f "report.json" ]; then
-          curl -F chat_id=${{ secrets.TG_CHAT_ID }} \
-               -F document=@./report.json \
-               -F caption=$'<b>Отчёт о тестах</b>\n\nРепозиторий: ${{ github.repository }}\nИнициатор: ${{ github.actor }}\nСтатус: ${{ job.status }}' \
-               -F parse_mode=HTML \
-               "https://api.telegram.org/bot${{ secrets.TG_TOKEN }}/sendDocument"
-        else
-          echo "report.json not found, creating minimal report..."
-          echo '{"summary": {"total": 0, "passed": 0, "failed": 0, "error": "No tests run"}}' > report.json
-          curl -F chat_id=${{ secrets.TG_CHAT_ID }} \
-               -F document=@./report.json \
-               -F caption=$'<b>Отчёт о тестах</b>\n\nОшибка: Тесты не были запущены\nРепозиторий: ${{ github.repository }}\nИнициатор: ${{ github.actor }}\nСтатус: failed' \
-               -F parse_mode=HTML \
-               "https://api.telegram.org/bot${{ secrets.TG_TOKEN }}/sendDocument"
+        REPORT_FILE="report.json"
+        if [ ! -s "$REPORT_FILE" ]; then
+          echo '{"summary": {"total": 0, "passed": 0, "failed": 0, "error": "No tests run"}}' > "$REPORT_FILE"
         fi
+
+        ABS_PATH="$(realpath "$REPORT_FILE")"
+
+        curl --fail --show-error \
+             -F chat_id="${{ secrets.TG_CHAT_ID }}" \
+             -F "document=@${ABS_PATH}" \
+             -F "caption=<b>Отчёт о тестах</b>\n\nРепозиторий: ${{ github.repository }}\nИнициатор: ${{ github.actor }}\nСтатус: ${{ job.status }}" \
+             -F parse_mode=HTML \
+             "https://api.telegram.org/bot${{ secrets.TG_TOKEN }}/sendDocument"
