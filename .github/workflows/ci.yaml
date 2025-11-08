@@ -60,7 +60,7 @@ jobs:
 
         curl --fail --show-error \
             -F chat_id="${{ secrets.TG_CHAT_ID }}" \
-            -F "document=@${ABS_PATH};type=application/json;filename=report.json" \
-            -F "caption=<b>отчёт о тестах</b>\n\nрепозиторий: ${{ github.repository }}\nинициатор: ${{ github.actor }}\nстатус: success" \
+            -F document=@"${ABS_PATH}" \
+            -F caption="<b>отчёт о тестах</b>\n\nрепозиторий: ${{ github.repository }}\nинициатор: ${{ github.actor }}\nстатус: success" \
             -F parse_mode=HTML \
             "https://api.telegram.org/bot${{ secrets.TG_TOKEN }}/sendDocument"
