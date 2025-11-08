@@ -44,22 +44,23 @@ jobs:
         name: test-report
         path: report.json
 
-    - name: send JSON report to Telegram
+    - name: Send JSON report to Telegram
       if: always()
       run: |
-        if [ -f "report.json" ]; then
-          echo "sending report to Telegram..."
-          curl -F chat_id=${{ secrets.TG_CHAT_ID }} \
-               -F document=@./report.json \
-               -F caption=$'<b>отчёт о тестах</b>\n\nрепозиторий: ${{ github.repository }}\nинициатор: ${{ github.actor }}\nстатус: ${{ job.status }}' \
-               -F parse_mode=HTML \
-               "https://api.telegram.org/bot${{ secrets.TG_TOKEN }}/sendDocument"
-        else
-          echo "report.json not found, creating minimal report..."
-          echo '{"summary": {"total": 0, "passed": 0, "failed": 0, "error": "No tests run"}}' > report.json
-          curl -F chat_id=${{ secrets.TG_CHAT_ID }} \
-               -F document=@./report.json \
-               -F caption=$'<b>отчёт о тестах</b>\n\nошибка: Тесты не были запущены\nрепозиторий: ${{ github.repository }}\nинициатор: ${{ github.actor }}\nстатус: failed' \
-               -F parse_mode=HTML \
-               "https://api.telegram.org/bot${{ secrets.TG_TOKEN }}/sendDocument"
+        REPORT_FILE="report.json"
+
+        if [ ! -s "$REPORT_FILE" ]; then
+          echo '{"summary":{"total":0,"passed":0,"failed":0,"error":"No tests run"}}' > "$REPORT_FILE"
         fi
+
+        ABS_PATH="$(realpath "$REPORT_FILE")"
+
+        ls -la "$ABS_PATH"
+        cat "$ABS_PATH"
+
+        curl --fail --show-error \
+            -F chat_id="${{ secrets.TG_CHAT_ID }}" \
+            -F "document=@${ABS_PATH};type=application/json;filename=report.json" \
+            -F "caption=<b>отчёт о тестах</b>\n\nрепозиторий: ${{ github.repository }}\nинициатор: ${{ github.actor }}\nстатус: success" \
+            -F parse_mode=HTML \
+            "https://api.telegram.org/bot${{ secrets.TG_TOKEN }}/sendDocument"
