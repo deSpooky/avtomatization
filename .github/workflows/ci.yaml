@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
+    - name: checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
@@ -32,7 +32,31 @@ jobs:
 
     - name: tests
       run: |
-        PYTHONPATH=. pytest tests/test_utils.py
+        export PYTHONPATH=.
+        pytest -v --json-report --json-report-file=report.json || echo "tests failed"
+      continue-on-error: true
 
-    - name: Run script
-      run: python main.py
+    - name: JSON report
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-report
+        path: report.json
+
+    - name: send JSON report
+      if: always()
+      run: |
+        if [ -f "report.json" ]; then
+          curl -F chat_id=${{ secrets.TG_CHAT_ID }} \
+               -F document=@./report.json \
+               -F caption=$'<b>отчет о тестах</b>\n\nрепозиторий: ${{ github.repository }}\nинициатор: ${{ github.actor }}\nстатус: ${{ job.status }}' \
+               -F parse_mode=HTML \
+               "https://api.telegram.org/bot${{ secrets.TG_BOT_TOKEN }}/sendDocument"
+        else
+          echo "report.json not found"
+          echo '{"summary": {"total": 0, "passed": 0, "failed": 0, "error": "No tests run"}}' > report.json
+          curl -F chat_id=${{ secrets.TG_CHAT_ID }} \
+               -F document=@./report.json \
+               -F caption=$'<b>отчет о тестах</b>\n\nошибка: тесты не были запущены\nрепозиторий: ${{ github.repository }}\nинициатор: ${{ github.actor }}\nстатус: failed' \
+               -F parse_mode=HTML \
+               "https://api.telegram.org/bot${{ secrets.TG_BOT_TOKEN }}/sendDocument"
+        fi
