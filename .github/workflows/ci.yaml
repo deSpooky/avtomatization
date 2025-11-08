@@ -38,7 +38,7 @@ jobs:
     - name: Run tests and generate JSON report
       run: |
         export PYTHONPATH=.
-        pytest -v --json-report --json-report-file=report.json || echo "Tests failed but report generated"
+        pytest -v --json-report --json-report-file=report.json || echo "Tests failed or some errors occurred"
       continue-on-error: true
 
     - name: Upload JSON report as artifact
@@ -53,7 +53,7 @@ jobs:
         REPORT_FILE="report.json"
 
         if [ ! -s "$REPORT_FILE" ]; then
-          echo '{"summary": {"total": 0, "passed": 0, "failed": 0, "error": "No tests run"}}' > "$REPORT_FILE"
+          echo '{"summary":{"total":0,"passed":0,"failed":0,"error":"No tests run"}}' > "$REPORT_FILE"
         fi
 
         if [ ! -r "$REPORT_FILE" ]; then
@@ -62,10 +62,15 @@ jobs:
         fi
 
         ABS_PATH="$(realpath "$REPORT_FILE")"
+        JOB_STATUS="${{ job.status }}"
+        CAPTION="<b>Отчёт о тестах</b>\n\nРепозиторий: ${{ github.repository }}\nИнициатор: ${{ github.actor }}\nСтатус: ${JOB_STATUS}"
+
+        ls -la "$ABS_PATH"
+        cat "$ABS_PATH"
 
         curl --fail --show-error \
              -F chat_id="${{ secrets.TG_CHAT_ID }}" \
-             -F "document=@${ABS_PATH}" \
-             -F "caption=<b>Отчёт о тестах</b>\n\nРепозиторий: ${{ github.repository }}\nИнициатор: ${{ github.actor }}\nСтатус: ${{ job.status }}" \
+             -F "document=@${ABS_PATH};type=application/json;filename=report.json" \
+             -F "caption=${CAPTION}" \
              -F parse_mode=HTML \
              "https://api.telegram.org/bot${{ secrets.TG_TOKEN }}/sendDocument"
