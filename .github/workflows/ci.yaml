@@ -47,20 +47,22 @@ jobs:
     - name: Send JSON report to Telegram
       if: always()
       run: |
-        REPORT_FILE="report.json"
-
-        if [ ! -s "$REPORT_FILE" ]; then
-          echo '{"summary":{"total":0,"passed":0,"failed":0,"error":"No tests run"}}' > "$REPORT_FILE"
+        if [ ! -s report.json ]; then
+          echo '{"summary":{"total":0,"passed":0,"failed":0,"error":"No tests run"}}' > report.json
         fi
 
-        ABS_PATH="$(realpath "$REPORT_FILE")"
+        ls -la report.json
+        cat report.json
 
-        ls -la "$ABS_PATH"
-        cat "$ABS_PATH"
+        if [ "${{ job.status }}" == "success" ]; then
+          STATUS_TEXT="success"
+        else
+          STATUS_TEXT="failed"
+        fi
 
         curl --fail --show-error \
             -F chat_id="${{ secrets.TG_CHAT_ID }}" \
-            -F document=@"${ABS_PATH}" \
-            -F caption="<b>отчёт о тестах</b>\n\nрепозиторий: ${{ github.repository }}\nинициатор: ${{ github.actor }}\nстатус: success" \
+            -F document=@report.json \
+            -F caption="<b>отчёт о тестах</b>\n\nрепозиторий: ${{ github.repository }}\nинициатор: ${{ github.actor }}\nстатус: $STATUS_TEXT" \
             -F parse_mode=HTML \
             "https://api.telegram.org/bot${{ secrets.TG_TOKEN }}/sendDocument"
