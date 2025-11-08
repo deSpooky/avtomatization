@@ -1,4 +1,4 @@
-name: Larionova
+name: Basic CI
 
 on: [push, pull_request]
 
@@ -7,70 +7,62 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
+    - name: 📦 Checkout repository
       uses: actions/checkout@v4
 
-    - name: Set up Python
+    - name: 🐍 Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: "3.10"
 
-    - name: Install dependencies
+    - name: 🔧 Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pytest-json-report black flake8
 
-    - name: Lint with flake8
+    - name: 🔍 Lint with flake8
       run: flake8 . || echo "Linting failed but continuing..."
       continue-on-error: true
 
-    - name: Auto-format code with Black
+    - name: 🧹 Auto-format code with Black
       run: |
         black .
         git config --global user.name "github-actions"
         git config --global user.email "github-actions@github.com"
         git add .
-        git commit -m "Auto format code" || echo "No changes to commit"
+        git commit -m "🧹 Auto format code" || echo "No changes to commit"
         git push || echo "Push failed, possibly no changes"
       continue-on-error: true
 
-    - name: Run tests and generate JSON report
+    - name: 🧪 Run tests and generate JSON report
       run: |
         export PYTHONPATH=.
-        pytest -v --json-report --json-report-file=report.json || echo "Tests failed or some errors occurred"
+        pytest -v --json-report --json-report-file=report.json || echo "Tests failed but report generated"
       continue-on-error: true
 
-    - name: Upload JSON report as artifact
+    - name: 📤 Upload JSON report as artifact
       uses: actions/upload-artifact@v4
       with:
         name: test-report
         path: report.json
 
-    - name: Send JSON report to Telegram
+    - name: 📤 Send JSON report to Telegram
       if: always()
       run: |
-        REPORT_FILE="report.json"
-
-        if [ ! -s "$REPORT_FILE" ]; then
-          echo '{"summary":{"total":0,"passed":0,"failed":0,"error":"No tests run"}}' > "$REPORT_FILE"
+        if [ -f "report.json" ]; then
+          echo "📄 Sending report to Telegram..."
+          curl -F chat_id=${{ secrets.TG_CHAT_ID }} \
+               -F document=@./report.json \
+               -F caption=$'📄 <b>Отчёт о тестах</b>\n\n📦 Репозиторий: ${{ github.repository }}\n👤 Инициатор: ${{ github.actor }}\n📊 Статус: ${{ job.status }}' \
+               -F parse_mode=HTML \
+               "https://api.telegram.org/bot${{ secrets.TG_TOKEN }}/sendDocument"
+        else
+          echo "❌ report.json not found, creating minimal report..."
+          echo '{"summary": {"total": 0, "passed": 0, "failed": 0, "error": "No tests run"}}' > report.json
+          curl -F chat_id=${{ secrets.TG_CHAT_ID }} \
+               -F document=@./report.json \
+               -F caption=$'⚠️ <b>Отчёт о тестах</b>\n\n❌ Ошибка: Тесты не были запущены\n📦 Репозиторий: ${{ github.repository }}\n👤 Инициатор: ${{ github.actor }}\n📊 Статус: failed' \
+               -F parse_mode=HTML \
+               "https://api.telegram.org/bot${{ secrets.TG_TOKEN }}/sendDocument"
         fi
-
-        if [ ! -r "$REPORT_FILE" ]; then
-          echo "report.json не доступен для чтения"
-          exit 1
-        fi
-
-        ABS_PATH="$(realpath "$REPORT_FILE")"
-        JOB_STATUS="${{ job.status }}"
-        CAPTION="<b>Отчёт о тестах</b>\n\nрепозиторий: ${{ github.repository }}\nИнициатор: ${{ github.actor }}\nСтатус: ${JOB_STATUS}"
-
-        ls -la "$ABS_PATH"
-        cat "$ABS_PATH"
-
-        curl --fail --show-error \
-             -F chat_id="${{ secrets.TG_CHAT_ID }}" \
-             -F "document=@${ABS_PATH};type=application/json;filename=report.json" \
-             -F "caption=${CAPTION}" \
-             -F parse_mode=HTML \
-             "https://api.telegram.org/bot${{ secrets.TG_TOKEN }}/sendDocument"
